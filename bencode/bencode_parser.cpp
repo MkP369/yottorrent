@@ -1,6 +1,10 @@
 #include "bencode_parser.hpp"
-#include <stdexcept>
 
+#include <boost/hash2/sha1.hpp>
+#include <cstdint>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 class BencodeParser {
  public:
@@ -13,41 +17,33 @@ class BencodeParser {
       throw std::runtime_error("expected d");
     MetaInfo m;
     bool has_announce = false, has_info = false;
-    int prev_key_index = -1;  // to check lexographical ordering of the keys
+    std::string prev_key = "";  // to check lexographical ordering of the keys
     while (peek() != 'e') {
       std::string key = parse_string();
-      int curr_key_index;
+      if (key <= prev_key) {
+        throw std::runtime_error(
+            "dictionary keys are not in lexicographic order");
+      }
+      prev_key = key;
       if (key == "announce") {
         m.announce = parse_string();
         has_announce = true;
-        curr_key_index = 0;
       } else if (key == "announce-list") {
         m.announce_list = parse_announce_list();
-        curr_key_index = 1;
       } else if (key == "comment") {
         m.comment = parse_string();
-        curr_key_index = 2;
       } else if (key == "created by") {
         m.created_by = parse_string();
-        curr_key_index = 3;
       } else if (key == "creation date") {
         m.creation_date = parse_int();
-        curr_key_index = 4;
       } else if (key == "encoding") {
         m.encoding = parse_string();
-        curr_key_index = 5;
       } else if (key == "info") {
         m.info = parse_torrent_info();
         has_info = true;
-        curr_key_index = 6;
       } else {
         throw std::runtime_error("unexpected key");
       }
-      if (curr_key_index <= prev_key_index) {
-        throw std::runtime_error(
-            "dictionary keys are not in lexographic order");
-      }
-      prev_key_index = curr_key_index;
     }
     if (!(has_announce && has_info)) {
       throw std::runtime_error(
@@ -125,14 +121,14 @@ class BencodeParser {
     return content;
   }
 
-  std::vector<std::byte> parse_pieces() {
+  std::vector<std::array<uint8_t, 20>> parse_pieces() {
     std::string s;
     while (peek() != ':') {
       s += peek();
       consume(1);
     }
     consume(1);  // ':'
-    long long len = std::stoll(s);
+    const long long len = std::stoll(s);
     if (len < 0) {
       throw std::runtime_error("length of piece cannot be negative");
     } else if (s[0] == '+') {
@@ -146,16 +142,14 @@ class BencodeParser {
     } else if (len % 20 != 0) {
       throw std::runtime_error("length of piece should be a multiple of 20");
     }
-    std::string content;
-    content.reserve(len);
-    for (int i = 0; i < len; i++) {
-      content += peek();
+    std::vector<std::array<uint8_t, 20>> pieces(len / 20);
+    for (long long i = 0; i < len; i++) {
+      long long chunk = i / 20;
+      int byte_index = i % 20;
+      pieces[chunk][byte_index] = static_cast<uint8_t>(peek());
       consume(1);
     }
-    std::vector<std::byte> pieces_vector(
-        reinterpret_cast<const std::byte*>(content.data()),
-        reinterpret_cast<const std::byte*>(content.data() + content.size()));
-    return pieces_vector;
+    return pieces;
   }
 
   std::vector<std::vector<std::string>> parse_announce_list() {
@@ -183,17 +177,22 @@ class BencodeParser {
   }
 
   TorrentInfo parse_torrent_info() {
+    boost::hash2::sha1_160 hasher;
+    const size_t dict_start = m_index;
     if (peek() == 'd')
       consume(1);
     else
       throw std::runtime_error("expected d");
     TorrentInfo t;
-    int prev_key_index = -1;
+    std::string prev_key = "";
     bool has_length = false, has_name = false, has_piece_length = false,
          has_pieces = false;
     while (peek() != 'e') {
       std::string key = parse_string();
-      int curr_key_index;
+      if (key <= prev_key) {
+        throw std::runtime_error("keys are not in lexicographic order");
+      }
+      prev_key = key;
       if (key == "length") {
         long long val = parse_int();
         if (val <= 0) {
@@ -201,18 +200,15 @@ class BencodeParser {
         }
         t.length = val;
         has_length = true;
-        curr_key_index = 0;
       } else if (key == "md5sum") {
         std::string val = parse_string();
         if (val.size() != 32) {
           throw std::runtime_error("md5sum should be exactly 32 characters");
         }
         t.md5sum = val;
-        curr_key_index = 1;
       } else if (key == "name") {
         t.name = parse_string();
         has_name = true;
-        curr_key_index = 2;
       } else if (key == "piece length") {
         long long val = parse_int();
         if (val <= 0) {
@@ -220,24 +216,47 @@ class BencodeParser {
         }
         t.piece_length = val;
         has_piece_length = true;
-        curr_key_index = 3;
       } else if (key == "pieces") {
         t.pieces = parse_pieces();
         has_pieces = true;
-        curr_key_index = 4;
       } else {
-        // TODO: make ignore value function
-        throw std::runtime_error("unknown key");
+        skip();
       }
-      // check duplicates and lexicographic order
-      if (curr_key_index <= prev_key_index)
-        throw std::runtime_error(
-            "dictionary keys are not in lexicographic order");
     }
     if (!(has_length && has_name && has_pieces && has_piece_length))
       throw std::runtime_error("mandatory fields missing in TorrentInfo");
     consume(1);  // 'e'
+    const size_t dict_end = m_index;
+    hasher.update(m_data.data() + dict_start, dict_end - dict_start);
+    auto digest = hasher.result();
+    std::copy(digest.begin(), digest.end(), t.info_hash.begin());
     return t;
+  }
+
+  void skip() {
+    if (peek() == 'i') {
+      parse_int();
+    } else if (peek() == 'd') {
+      consume(1);
+      std::string prev = "";
+      while (peek() != 'e') {
+        std::string curr = parse_string();
+        if (curr <= prev) {
+          throw std::runtime_error("keys are not lexicographically ordered");
+        }
+        prev = curr;
+        skip();
+      }
+      consume(1);
+    } else if (peek() == 'l') {
+      consume(1);
+      while (peek() != 'e') {
+        skip();
+      }
+      consume(1);
+    } else {
+      parse_string();
+    }
   }
 };
 

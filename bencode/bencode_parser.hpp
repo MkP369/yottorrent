@@ -1,5 +1,6 @@
 #pragma once
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <span>
 #include <string>
@@ -9,8 +10,9 @@ struct TorrentInfo {
   std::optional<std::string> md5sum;
   std::string name;
   long long piece_length;
-  std::vector<std::byte> pieces;
+  std::vector<std::array<uint8_t, 20>> pieces;
   long long length;
+  std::array<uint8_t, 20> info_hash;
 };
 struct MetaInfo {
   std::string announce;

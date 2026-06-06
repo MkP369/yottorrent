@@ -37,7 +37,7 @@ int main(int argc, char* argv[]) {
 
   try {
     MetaInfo torrent = parse_torrent(file_span);
-    std::cout << "Successfully parsed! Tracker: " << torrent.info.length << "\n";
+    std::cout << "Successfully parsed! Tracker: " << torrent.announce << "\n";
   } catch (const std::exception& e) {
     std::cerr << "Fatal Error: " << e.what() << "\n";
     return 1;

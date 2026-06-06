@@ -9,7 +9,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include_directories(${CMAKE_SOURCE_DIR})
 
+find_package(Boost REQUIRED CONFIG)
+
 add_executable(yottorent
     main.cpp
     bencode/bencode_parser.cpp
 )
+
+target_link_libraries(yottorent PRIVATE Boost::headers)
