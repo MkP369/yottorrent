@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.20)
 
 project(yottorent)
 
@@ -9,11 +9,21 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include_directories(${CMAKE_SOURCE_DIR})
 
-find_package(Boost REQUIRED CONFIG)
+find_package(Boost REQUIRED COMPONENTS url CONFIG)
+
+include(FetchContent)
+FetchContent_Declare(cpr GIT_REPOSITORY https://github.com/libcpr/cpr.git
+                         GIT_TAG 1.14.2)
+FetchContent_MakeAvailable(cpr)
 
 add_executable(yottorent
     main.cpp
-    bencode/bencode_parser.cpp
+    torrent_file/bencode_parser.cpp
+    file_io.cpp
+    tracker/tracker.cpp
 )
-
-target_link_libraries(yottorent PRIVATE Boost::headers)
+target_link_libraries(yottorent PRIVATE
+    Boost::headers
+    Boost::url
+    cpr::cpr
+)

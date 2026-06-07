@@ -1,6 +1,7 @@
 #include "bencode_parser.hpp"
 
 #include <boost/hash2/sha1.hpp>
+#include <cstddef>
 #include <cstdint>
 #include <stdexcept>
 #include <string>
@@ -8,9 +9,9 @@
 
 class BencodeParser {
  public:
-  explicit BencodeParser(std::span<const std::byte> data)
+  explicit BencodeParser(std::span<const std::uint8_t> data)
       : m_data(data), m_index(0) {}
-  MetaInfo parse() {
+  MetaInfo parse_torrent_file() {
     if (peek() == 'd')
       consume(1);
     else
@@ -42,19 +43,56 @@ class BencodeParser {
         m.info = parse_torrent_info();
         has_info = true;
       } else {
-        throw std::runtime_error("unexpected key");
+        skip();
       }
     }
     if (!(has_announce && has_info)) {
       throw std::runtime_error(
           "mandatory fields in MetaInfo dictionary are missing");
     }
-    // consume(1);  // 'e'
+    consume(1);  // 'e'
     return m;
   }
 
+  TrackerResponse parse_tracker_response() {
+    TrackerResponse t;
+    if (peek() == 'd')
+      consume(1);
+    else
+      throw std::runtime_error("expected  d");
+    bool has_interval = false, has_peers = false;
+    std::string prev_key = "";
+    while (peek() != 'e') {
+      std::string key = parse_string();
+      if (key <= prev_key) {
+        throw std::runtime_error(
+            "dictionary keys are not in lexicographic order");
+      }
+      prev_key = key;
+      if (key == "interval") {
+        t.interval = parse_int();
+        has_interval = true;
+      } else if (key == "peers") {
+        if (peek() == 'l') {
+          t.peers = parse_normal_peers();
+        } else {  // compact form
+          t.peers = parse_compact_peers();
+        }
+        has_peers = true;
+      } else {
+        skip();
+      }
+    }
+    if (!(has_peers && has_interval)) {
+      throw std::runtime_error(
+          "mandatory fields in TrackerResponse dictionary are missing");
+    }
+    consume(1);  // 'e'
+    return t;
+  }
+
  private:
-  std::span<const std::byte> m_data;
+  std::span<const uint8_t> m_data;
   size_t m_index = 0;
 
   char peek() {
@@ -64,13 +102,92 @@ class BencodeParser {
     return static_cast<char>(m_data[m_index]);
   }
 
-  void consume(int length) {
-    if (m_index + length >= m_data.size())
+  void consume(size_t length) {
+    if (m_index + length > m_data.size())
       throw std::runtime_error("Can't consume, Unexpected EOF");
     else
       m_index += length;
   }
 
+  std::vector<boost::asio::ip::tcp::endpoint> parse_compact_peers() {
+    std::vector<boost::asio::ip::tcp::endpoint> peers;
+    const std::string raw_peers = parse_string();
+    const size_t peer_size = 6;  // 4 ip + 2 port
+    if (raw_peers.size() % 6 != 0) {
+      throw std::runtime_error("malformed peers value");
+    }
+    size_t total_peers = raw_peers.size() / peer_size;
+    peers.resize(total_peers);
+    boost::asio::ip::address_v4::bytes_type ip_bytes;
+    uint16_t port;
+    for (size_t i = 0; i < total_peers; i++) {
+      std::copy_n(raw_peers.begin() + peer_size * i, 4, ip_bytes.begin());
+      boost::asio::ip::address_v4 addr(ip_bytes);
+      port = (static_cast<uint16_t>(raw_peers[peer_size * i + 4]) << 8) |
+             raw_peers[peer_size * i + 5];
+      peers[i] = boost::asio::ip::tcp::endpoint(addr, port);
+    }
+    return peers;
+  }
+
+  std::vector<boost::asio::ip::tcp::endpoint> parse_normal_peers() {
+    std::vector<boost::asio::ip::tcp::endpoint> peers;
+    if (peek() != 'l') {
+      throw std::runtime_error("expected 'l'");
+    }
+    consume(1);
+    while (peek() != 'e') {
+      if (peek() != 'd') {
+        throw std::runtime_error("expected 'd'");
+      }
+      consume(1);
+
+      std::string key = parse_string();
+      if (key != "ip") {
+        throw std::runtime_error("expected key 'ip'");
+      }
+      const std::string ip_str = parse_string();
+
+      key = parse_string();
+      if (key != "peer id") {
+        throw std::runtime_error("expected key 'peer id'");
+      }
+      skip();  // peer id is not required
+
+      key = parse_string();
+      if (key != "port") {
+        throw std::runtime_error("expected key 'port'");
+      }
+      const long long port = parse_int();
+      if (!(port >= 0 && port <= 65535)) {
+        throw std::runtime_error("not a valid port");
+      }
+      peers.push_back(string_to_ip(ip_str, port));
+      consume(1);
+    }
+    consume(1);
+    return peers;
+  }
+
+  boost::asio::ip::tcp::endpoint string_to_ip(const std::string& ip_str,
+                                              const uint16_t port) {
+    if (ip_str.find(':') != std::string::npos) {  // IPv6
+      return boost::asio::ip::tcp::endpoint(
+          boost::asio::ip::make_address_v6(ip_str), port);
+    } else if (std::any_of(ip_str.begin(), ip_str.end(), [](char c) {
+                 return std::isalpha(c) || c == '-';
+               })) {  // DNS name
+      boost::asio::io_context io_context;
+      boost::asio::ip::tcp::resolver resolver(io_context);
+      auto endpoints = resolver.resolve(ip_str, std::to_string(port));
+      for (const auto& entry : endpoints) {
+        return entry.endpoint();
+      }
+    }
+    // IPv4
+    return boost::asio::ip::tcp::endpoint(
+        boost::asio::ip::make_address_v4(ip_str), port);
+  }
   long long parse_int() {
     char c = peek();
     if (c == 'i') {
@@ -102,7 +219,7 @@ class BencodeParser {
       consume(1);
     }
     consume(1);  // ':'
-    long long len = std::stoll(s);
+    const long long len = std::stoll(s);
     if (len < 0) {
       throw std::runtime_error("string cannot have negative length");
     } else if (s[0] == '+') {
@@ -142,12 +259,16 @@ class BencodeParser {
     } else if (len % 20 != 0) {
       throw std::runtime_error("length of piece should be a multiple of 20");
     }
-    std::vector<std::array<uint8_t, 20>> pieces(len / 20);
-    for (long long i = 0; i < len; i++) {
-      long long chunk = i / 20;
-      int byte_index = i % 20;
-      pieces[chunk][byte_index] = static_cast<uint8_t>(peek());
-      consume(1);
+
+    const size_t total_bytes = static_cast<size_t>(len);  // for performance
+    const size_t num_pieces = total_bytes / 20;
+    std::vector<std::array<uint8_t, 20>> pieces(num_pieces);
+
+    for (size_t chunk = 0; chunk < num_pieces; chunk++) {
+      for (size_t byte_index = 0; byte_index < 20; byte_index++) {
+        pieces[chunk][byte_index] = static_cast<uint8_t>(peek());
+        consume(1);
+      }
     }
     return pieces;
   }
@@ -260,7 +381,12 @@ class BencodeParser {
   }
 };
 
-MetaInfo parse_torrent(std::span<const std::byte> data) {
+MetaInfo parse_torrent_file(std::span<const uint8_t> data) {
   BencodeParser parser(data);
-  return parser.parse();
+  return parser.parse_torrent_file();
+}
+
+TrackerResponse parse_tracker_response(std::span<const uint8_t> data) {
+  BencodeParser parser(data);
+  return parser.parse_tracker_response();
 }

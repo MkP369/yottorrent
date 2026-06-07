@@ -5,13 +5,15 @@
 #include <span>
 #include <string>
 #include <vector>
+#include <boost/asio.hpp>
+#include <cstdint>
 
 struct TorrentInfo {
   std::optional<std::string> md5sum;
   std::string name;
-  long long piece_length;
+  size_t piece_length;
   std::vector<std::array<uint8_t, 20>> pieces;
-  long long length;
+  size_t length;
   std::array<uint8_t, 20> info_hash;
 };
 struct MetaInfo {
@@ -19,9 +21,17 @@ struct MetaInfo {
   std::optional<std::vector<std::vector<std::string>>> announce_list;
   std::optional<std::string> comment;
   std::optional<std::string> created_by;
-  std::optional<long long> creation_date;
+  std::optional<size_t> creation_date;
   std::optional<std::string> encoding;
   TorrentInfo info;
 };
 
-MetaInfo parse_torrent(std::span<const std::byte> data);
+struct TrackerResponse {
+  size_t interval;
+  std::vector<boost::asio::ip::tcp::endpoint> peers;
+};
+
+MetaInfo parse_torrent_file(std::span<const uint8_t> data);
+
+TrackerResponse parse_tracker_response(std::span<const uint8_t>data);
+
