@@ -21,6 +21,8 @@ add_executable(yottorent
     torrent_file/bencode_parser.cpp
     file_io.cpp
     tracker/tracker.cpp
+    peer/handshake/handshake.cpp
+    peer/peer_connection.cpp
 )
 target_link_libraries(yottorent PRIVATE
     Boost::headers

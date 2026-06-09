@@ -1,12 +1,11 @@
 #pragma once
+#include <boost/asio/ip/tcp.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <span>
 #include <string>
 #include <vector>
-#include <boost/asio.hpp>
-#include <cstdint>
 
 struct TorrentInfo {
   std::optional<std::string> md5sum;
@@ -33,5 +32,4 @@ struct TrackerResponse {
 
 MetaInfo parse_torrent_file(std::span<const uint8_t> data);
 
-TrackerResponse parse_tracker_response(std::span<const uint8_t>data);
-
+TrackerResponse parse_tracker_response(std::span<const uint8_t> data);
