@@ -3,13 +3,12 @@
 #include <algorithm>
 #include <array>
 #include <boost/asio/awaitable.hpp>
+#include <boost/asio/buffer.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/read.hpp>
-#include <boost/asio/registered_buffer.hpp>
 #include <boost/asio/use_awaitable.hpp>
 #include <boost/asio/write.hpp>
 #include <cstdint>
-#include <iostream>
 #include <stdexcept>
 
 #pragma pack(push, 1)
@@ -19,8 +18,8 @@ struct HandShakePayload {
                                   'e', 'n', 't', ' ', 'p', 'r', 'o',
                                   't', 'o', 'c', 'o', 'l'};
   std::array<uint8_t, 8> reserved_bytes = {0, 0, 0, 0, 0, 0, 0, 0};
-  std::array<uint8_t, 20> info_hash;
-  std::array<uint8_t, 20> peer_id;
+  std::array<uint8_t, 20> info_hash{};
+  std::array<uint8_t, 20> peer_id{};
 };
 #pragma pack(pop)
 
@@ -40,10 +39,9 @@ boost::asio::awaitable<void> perform_handshake(
                                    boost::asio::buffer(&peer_payload, 68),
                                    boost::asio::use_awaitable);
 
-  if (!(peer_payload.len_pstr == m_local_payload.len_pstr &&
-        peer_payload.pstr == m_local_payload.pstr &&
-        peer_payload.info_hash == m_local_payload.info_hash)) {
+  if (peer_payload.len_pstr != m_local_payload.len_pstr ||
+      !(peer_payload.pstr == m_local_payload.pstr) ||
+      !(peer_payload.info_hash == m_local_payload.info_hash)) {
     throw std::runtime_error("Malicious peer");
   }
-  std::cout << "Handshake verified";
 }

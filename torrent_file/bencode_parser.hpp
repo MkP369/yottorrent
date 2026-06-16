@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <boost/asio/ip/tcp.hpp>
 #include <cstddef>
 #include <cstdint>
@@ -11,7 +12,7 @@ struct TorrentInfo {
   std::optional<std::string> md5sum;
   std::string name;
   size_t piece_length;
-  std::vector<std::array<uint8_t, 20>> pieces;
+  std::vector<std::array<uint8_t, 20>> piece_hashes;
   size_t length;
   std::array<uint8_t, 20> info_hash;
 };

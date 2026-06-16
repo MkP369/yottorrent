@@ -1,8 +1,8 @@
 #pragma once
 
 #include <array>
-#include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/awaitable.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include <cstdint>
 
 boost::asio::awaitable<void> perform_handshake(

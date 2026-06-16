@@ -1,7 +1,11 @@
 #include "file_io.hpp"
 
+#include <cstdint>
+#include <filesystem>
 #include <fstream>
+#include <ios>
 #include <stdexcept>
+#include <vector>
 
 std::vector<std::uint8_t> read_binary_file(
     const std::filesystem::path& file_path) {

@@ -1,9 +1,17 @@
 #include "tracker.hpp"
 
-#include <cpr/cpr.h>
-
+#include <array>
+#include <cstdint>
+#include <span>
 #include <stdexcept>
 #include <string>
+
+#include "cpr/api.h"
+#include "cpr/cprtypes.h"
+#include "cpr/parameters.h"
+#include "cpr/response.h"
+#include "cpr/timeout.h"
+#include "torrent_file/bencode_parser.hpp"
 
 TrackerResponse request_peers(const MetaInfo& m,
                               const std::array<uint8_t, 20>& peer_id,
