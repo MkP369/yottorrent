@@ -113,7 +113,7 @@ class Piece {
         throw std::runtime_error("hashes do not match");
       }
     }
-    f.write_piece(m_piece_index, m_piece_length, data);
+    f.write_piece(m_piece_index, data);
     m_piece_data.clear();
   }
 

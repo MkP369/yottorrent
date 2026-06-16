@@ -20,7 +20,7 @@ inline void start_download(const TorrentInfo& torrent,
                            const std::filesystem::path& download_path,
                            std::array<uint8_t, 20> local_id) {
   boost::asio::io_context io_context;
-  FileStorage f(download_path, torrent.length);
+  FileStorage f(download_path, torrent.length, torrent.piece_length);
   PieceManager pm(torrent.piece_hashes.size(), torrent.piece_length,
                   torrent.length, torrent.piece_hashes);
   std::cout << resp.peers.size() << "\n";
