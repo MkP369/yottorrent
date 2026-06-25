@@ -34,6 +34,7 @@ cmake --build build
 ```
 
 ### TODO
+- Add Unit Tests
 - Support UDP trackers (BEP 15)
 - Add seeding capability
 - Support Multi-file Torrents
