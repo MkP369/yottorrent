@@ -8,7 +8,7 @@
 
 class FileStorage {
  public:
-  FileStorage(const std::string& path, size_t total_size, size_t piece_length)
+  FileStorage(const std::string& path, size_t total_size, uint32_t piece_length)
       : m_piece_length(piece_length) {
     m_file.open(path, std::ios::out | std::ios::binary);
     m_file.seekp(total_size - 1);
@@ -23,7 +23,7 @@ class FileStorage {
     }
   }
   void write_piece(uint32_t piece_index, const std::vector<uint8_t>& data) {
-    uint64_t offset = static_cast<uint64_t>(piece_index) * m_piece_length;
+    int64_t offset = m_piece_length * piece_index;
     m_file.seekp(offset);
     m_file.write(reinterpret_cast<const char*>(data.data()), data.size());
     m_file.flush();
@@ -31,5 +31,5 @@ class FileStorage {
 
  private:
   std::fstream m_file;
-  size_t m_piece_length;
+  uint32_t m_piece_length;
 };

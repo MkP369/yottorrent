@@ -4,7 +4,6 @@ project(yottorrent)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include_directories(${CMAKE_SOURCE_DIR})
@@ -19,11 +18,11 @@ FetchContent_MakeAvailable(cpr)
 add_executable(yottorent
     main.cpp
     torrent_file/bencode_parser.cpp
-    file_io.cpp
+    input/file_io.cpp
     tracker/tracker.cpp
     peer/handshake/handshake.cpp
 )
-target_link_libraries(yottorent PRIVATE
+target_link_libraries(yottorrent PRIVATE
     Boost::headers
     Boost::url
     cpr::cpr

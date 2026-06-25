@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <iostream>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -16,8 +17,22 @@
 TrackerResponse request_peers(const MetaInfo& m,
                               const std::array<uint8_t, 20>& peer_id,
                               const uint16_t port) {
+  std::string announce_url = m.announce;
+  if (m.announce.at(0) == 'u') {
+    if (m.announce_list.has_value()) {
+      for (const auto& v : m.announce_list.value()) {
+        for (auto url : v) {
+          if (url.at(0) == 'h') {
+            announce_url = url;
+            break;
+          }
+        }
+      }
+    }
+  }
+  std::cout << announce_url << "\n";
   cpr::Response resp = cpr::Get(
-      cpr::Url{m.announce},
+      cpr::Url{announce_url},
       cpr::Parameters{{"info_hash", std::string(m.info.info_hash.begin(),
                                                 m.info.info_hash.end())},
                       {"peer_id", std::string(peer_id.begin(), peer_id.end())},

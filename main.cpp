@@ -7,8 +7,8 @@
 #include <span>
 #include <vector>
 
-#include "file_io.hpp"
 #include "generate_id.hpp"
+#include "input/file_io.hpp"
 #include "p2p_manager/master_manager.hpp"
 #include "torrent_file/bencode_parser.hpp"
 #include "tracker/tracker.hpp"
@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
     const MetaInfo torrent = parse_torrent_file(file_buffer);
     const TrackerResponse resp = request_peers(torrent, local_id, 6886);
     std::filesystem::path download_path = args[2];
-    std::cout<<"Starting download\n";
+    std::cout << "Starting download\n";
     start_download(torrent.info, resp, download_path, local_id);
   } catch (const std::exception& e) {
     std::cerr << "Fatal Error: " << e.what() << "\n";
