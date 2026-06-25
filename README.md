@@ -22,7 +22,7 @@ lacks many features. But I aim to add more features in future.
 
 ### Building
 ```bash
-git clone https://github.com/MkP/yottorrent.git
+git clone https://github.com/MkP369/yottorrent.git
 cd yottorrent
 cmake -B build
 cmake --build build
