@@ -26,7 +26,6 @@ inline void start_download(const TorrentInfo& torrent,
   std::cout << resp.peers.size() << "\n";
   std::vector<std::shared_ptr<PeerConnection>> peers;
   for (const auto& endpoint : resp.peers) {
-    std::cout << "spawwed peer\n";
     auto peer = std::make_shared<PeerConnection>(io_context.get_executor(),
                                                  torrent.piece_hashes.size());
     peers.push_back(peer);

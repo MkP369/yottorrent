@@ -108,7 +108,6 @@ class PeerConnection {
 
   boost::asio::awaitable<void> start_downloading(PieceManager& pm,
                                                  FileStorage& f) {
-    std::cout << "started downloading ";
     uint8_t curr_backlog = 0;
     std::array<std::optional<Block>, 5> backlog;
     while (m_peer_socket.is_open() && !pm.finished()) {

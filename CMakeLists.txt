@@ -15,7 +15,7 @@ FetchContent_Declare(cpr GIT_REPOSITORY https://github.com/libcpr/cpr.git
                          GIT_TAG 1.14.2)
 FetchContent_MakeAvailable(cpr)
 
-add_executable(yottorent
+add_executable(yottorrent
     main.cpp
     torrent_file/bencode_parser.cpp
     input/file_io.cpp
